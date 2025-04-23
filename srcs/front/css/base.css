@@ -1,0 +1,158 @@
+/* Variables globales */
+:root {
+    --navbar-height: 76px;
+    --background-gradient: linear-gradient(135deg, #24243e 0%, #302b63 50%, #0f0c29 100%);
+    --overlay-light: rgba(255, 255, 255, 0.1);
+    --overlay-dark: rgba(33, 37, 41, 0.95);
+}
+
+/* Reset básico */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilos base */
+html body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Main layout */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--background-gradient);
+}
+
+/* Contenedor principal */
+#app, 
+body #app {
+    min-height: 100vh;
+    padding-top: var(--navbar-height) !important;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    position: relative;
+}
+
+.main-content {
+    flex: 1 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* Landing page specific styles */
+body[data-page="home"] {
+    padding-top: 0 !important;
+}
+
+/* Enlaces base */
+a {
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #C850C0;
+}
+
+@media (min-width: 992px) {
+    body {
+        padding-top: var(--navbar-height);
+    }
+}
+
+/* Layout principal */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+footer {
+    flex-shrink: 0;
+}
+
+.author-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.easter-egg {
+    position: absolute;
+    left: 0;
+    top: 25px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    font-style: italic;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+.author-wrapper:hover .easter-egg {
+    opacity: 1;
+}
+
+.author {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Botón de volver personalizado */
+.btn-back {
+    background: linear-gradient(135deg, #2b2b4d 0%, #1a1a38 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-back:hover {
+    background: linear-gradient(135deg, #373760 0%, #22224a 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+.btn-back:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-back i {
+    font-size: 1.1em;
+    transition: transform 0.3s ease;
+}
+
+.btn-back:hover i {
+    transform: translateX(-4px);
+}

@@ -1,0 +1,227 @@
+pid /tmp/nginx.pid;
+load_module modules/ngx_http_modsecurity_module.so;
+
+# Atention!
+# We use a template, because we need to load the IP_SERVER in this file,
+# and ".conf plain files" don´t accept macro variables!
+
+events {
+    worker_connections 1024;
+    multi_accept on;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    # Buffer size configuration
+    client_body_buffer_size    128k;
+    client_header_buffer_size  1k;
+    client_max_body_size       3M;    #profile images are limited to 2MB in backend, but here we allow 3MB (second layer of defense)
+    large_client_header_buffers 4 4k;
+    client_body_in_file_only clean;
+    client_body_in_single_buffer on;
+
+    # Timeouts
+    client_body_timeout   60s;
+    client_header_timeout 10;
+
+    # Headers and optimizations
+    proxy_hide_header Last-Modified;
+    add_header Last-Modified $date_gmt always;
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+
+    # Enhanced ModSecurity Configuration
+    modsecurity on;
+    modsecurity_rules_file /etc/nginx/modsecurity/rules/main.conf;
+    
+    # Logging configuration
+    error_log /var/log/nginx/error.log debug;
+    access_log /var/log/nginx/access.log combined;
+    access_log /var/log/modsecurity/audit.log combined;
+
+    # ModSecurity debug headers
+    add_header X-ModSecurity-Debug "on" always;
+
+    # SSL Configuration
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA384;
+    ssl_certificate     /tmp/ssl/transcendence.crt;
+    ssl_certificate_key /tmp/ssl/transcendence.key;
+
+    # DNS and Upstream Configuration
+    resolver 127.0.0.11;
+
+    # Rate limiting Configuration
+    limit_req_zone $binary_remote_addr zone=global_limit:10m rate=30r/s;
+    limit_req_status 429;
+
+    # HTTP Server - Redirect
+    server {
+        listen 8081;
+        server_name localhost;
+
+        # Simple direct health check configuration
+        location = /health {
+            access_log off;
+            add_header Content-Type text/plain;
+            return 200 'OK';
+        }
+
+        location / {
+            return 301 https://$host:8445$request_uri;
+        }
+    }
+
+    # HTTPS Server
+    server {
+        listen 8444 ssl;
+        server_name ${IP_SERVER};
+
+        # CORS
+        add_header 'Access-Control-Allow-Origin' 'https://${IP_SERVER}:8445';
+
+        # Frontend Configuration
+        location / {
+            proxy_pass http://front:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_cache_bypass $http_upgrade;
+            
+            # Timeouts
+            proxy_connect_timeout 60s;
+            proxy_send_timeout    60s;
+            proxy_read_timeout    60s;
+        }
+
+        # WebSocket Configuration
+        location /ws/ {
+            proxy_pass http://web:8000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # WebSocket Timeouts
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+            proxy_connect_timeout 3600s;
+            
+            # WebSocket SSL
+            proxy_ssl_verify off;
+            proxy_ssl_session_reuse on;
+            
+            # Buffering
+            proxy_buffering off;
+            proxy_buffer_size 128k;
+            proxy_buffers 4 256k;
+            proxy_busy_buffers_size 256k;
+        }
+
+        # API Configuration
+        location /api {
+            # File upload configs
+            client_max_body_size 3M;
+            client_body_buffer_size 128k;
+            
+            # Increase timeouts for uploads
+            proxy_connect_timeout 300;
+            proxy_send_timeout 300;
+            proxy_read_timeout 300;
+            
+            # Requests to /api go through ModSecurity before reaching the backend
+            proxy_pass http://web:8000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+
+            # CORS
+            add_header 'Access-Control-Allow-Origin' 'https://${IP_SERVER}:8445';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,X-CSRFToken';
+            add_header 'Access-Control-Allow-Credentials' 'true';
+
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain charset=UTF-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+        }
+
+        # Vault Configuration - Updated to proxy to vault service
+        location /vault/ {
+            limit_req zone=global_limit burst=5 nodelay;
+            proxy_pass https://vault:8200;
+    		proxy_ssl_verify off;
+    		proxy_ssl_session_reuse on;
+            proxy_ssl_protocols TLSv1.2 TLSv1.3;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Static files Configuration
+        location /static/ {
+            alias /usr/share/nginx/html/static/;
+        }
+
+        # Media files Configuration
+        location /media/ {
+            alias /usr/share/nginx/html/media/;
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+            try_files $uri $uri/ =404;
+            
+            # Debug headers
+            add_header X-Debug-Path $document_root$fastcgi_script_name;
+            add_header X-Debug-Uri $uri;
+            add_header X-Debug-Host $host;
+        }
+
+        # Health Check with exact location match for priority
+        location = /health {
+            access_log off;
+            add_header Content-Type text/plain always;
+            return 200 'OK';
+        }
+
+        # Also handle paths starting with /health/
+        location ^~ /health/ {
+            access_log off;
+            add_header Content-Type text/plain always;
+            return 200 'OK';
+        }
+
+        location = /favicon.ico {
+            access_log off;
+            log_not_found off;
+            return 204;
+        }
+
+        # Global settings
+        add_header X-Debug-Message "WAF Proxy" always;
+        error_log /var/log/nginx/error.log debug;
+        
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+        proxy_temp_file_write_size 256k;
+    }
+}

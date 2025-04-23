@@ -1,0 +1,186 @@
+networks:
+  transcendence-backend:
+    # This network is used for the backend services
+    driver: bridge
+  app-network:
+    # This network is used for the frontend to connect to the backend
+    driver: bridge
+
+services:
+
+  ssl-manager:
+    build:
+      context: ./srcs/ssl
+    volumes:
+      - ssl_certs:/ssl:rw
+    env_file:
+      - ./srcs/.env
+    networks:
+      - transcendence-backend
+
+  vault:
+    build:
+      context: .
+      dockerfile: srcs/vault/Dockerfile
+    # ports:
+    #   - "8200:8200" # Vault UI
+    expose:
+      - "8200" # Vault API
+    networks:
+      - transcendence-backend
+    volumes:
+      - ssl_certs:/tmp/ssl
+      - vault_data:/etc/vault.d/data
+    env_file:
+      - ./srcs/.env
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "vault status -tls-skip-verify || exit 0" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  db:
+    build:
+      context: ./srcs/db
+    expose:
+      - "5432"
+    networks:
+      - transcendence-backend
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ssl_certs:/tmp/ssl:rw
+    depends_on:
+      ssl-manager:
+        condition: service_completed_successfully
+      vault:
+        condition: service_healthy
+    env_file:
+      - ./srcs/.env # only for root, we use vault for the rest of the users (see Dockerfile)
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: ./srcs/django
+    # ports:  # This only was used for development!
+    #   - "8000:8000"
+    expose:
+      - "8000"
+    networks:
+      - transcendence-backend
+    volumes:
+      - django_media:/app/media:rw
+      - ssl_certs:/tmp/ssl:ro
+    depends_on:
+      vault:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ./srcs/.env
+    restart: always
+    healthcheck:
+      test: [ "CMD", "curl", "-k", "--fail", "http://localhost:8000/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  redis:
+    image: redis:latest
+    expose:
+      - "6379"
+    networks:
+      - transcendence-backend
+    restart: always
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ] # We don't need persistence
+
+  nginx:
+    build:
+      context: ./srcs
+      dockerfile: nginx/Dockerfile
+    expose:
+      - "80"
+      - "443"
+      - "8443"
+    networks:
+      - transcendence-backend
+      - app-network
+    volumes:
+      - django_media:/usr/share/nginx/html/media:rw
+      - ssl_certs:/tmp/ssl:ro
+    depends_on:
+      ssl-manager:
+        condition: service_completed_successfully
+      web:
+        condition: service_started
+    restart: always
+    healthcheck:
+      test: [ "CMD", "curl", "-k", "--fail", "-H", "Host: localhost", "https://localhost:8443/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  waf:
+    build:
+      context: .
+      dockerfile: srcs/waf/Dockerfile
+    ports:
+      - "8082:8081" # WAF (http redirect to https)
+      - "8445:8444" # WAF (https)
+    networks:
+      - transcendence-backend
+      - app-network
+    volumes:
+      - ssl_certs:/tmp/ssl:ro
+      - django_media:/usr/share/nginx/html/media:rw
+      - ./srcs/waf/custom-nginx.conf.template:/etc/nginx/nginx.conf.template
+    env_file:
+      - ./srcs/.env
+    command: [ "/usr/local/bin/entrypoint.sh" ]
+    restart: always
+    depends_on:
+      ssl-manager:
+        condition: service_completed_successfully
+      vault:
+        condition: service_healthy
+      web:
+        condition: service_started
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl -k --fail --max-time 1 http://localhost:8081/health || exit 0"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  front:
+    build: ./srcs/front
+    container_name: front
+    # ports:
+    #   - "3000:3000"
+    expose:
+      - "3000"
+    volumes:
+      - ./srcs/front:/app
+    networks:
+      - app-network
+    restart: always
+
+volumes:
+  ssl_certs:
+  postgres_data:
+  django_media:
+  vault_data:
+    driver: local

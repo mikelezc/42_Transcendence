@@ -73,3 +73,8 @@ chmod +x security_tests/WAF/test_waf.sh
 - For a publicly accessible deployment, run `./configure_ip.sh` to detect and use your external IP
 - Demo mode uses placeholder OAuth credentials - real OAuth integration requires valid 42 API credentials
 - Never commit the `.env` file to version control
+
+## Authors
+
+- mlezcano - [GitHub Profile](https://github.com/mikelezc)
+- ampjimen - [GitHub Profile](https://github.com/Amparojd)

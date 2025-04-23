@@ -1,34 +1,75 @@
-# Project Configuration
+# 42 Transcendence
 
-## Environment Variables
+A full-featured web application with a real-time multiplayer Pong game, user authentication, chat system, and tournament features. Built with Django, PostgreSQL, and secure containerized architecture.
 
-1. Copy the `.env.example` file to `.env`:
+## About This Project
+
+Transcendence is a web platform that offers:
+- Classic Pong game with multiplayer functionality
+- User authentication (local and OAuth)
+- Real-time chat system
+- Tournament organization
+- Secure architecture with Web Application Firewall
+
+## Quick Deployment
+
+### 1. Setup the Environment
+
+Run the automated setup script:
+
 ```bash
-cp srcs/env_example.md srcs/.env
+# Give execution permissions
+chmod +x setup_env.sh
+
+# Execute the script
+./setup_env.sh
 ```
 
-2. Edit the `.env` file with your credentials and specific configurations.
+This script automatically:
+- Generates secure credentials
+- Sets demo values for external services
+- Detects your local IP address
+- Allows customization of OAuth and email settings if needed
 
-3. Make sure to never commit the `.env` file to the repository.
+### 2. Deploy the Application
 
-For more details about each variable, check the comments in `.env.example`.
+```bash
+# Deploy using Docker Compose
+make
+```
 
-## API Keys and Sensitive Credentials
+### 3. Access the Application
 
-To configure the project, you'll need to create an `.env` file in the `srcs/` directory with the following credentials:
+After deployment, access the application at:
+- **Main URL**: https://localhost:8445
 
-1. 42 OAuth Credentials:
-   - Obtain from 42 developers portal
-   - Configure FORTYTWO_CLIENT_ID and FORTYTWO_CLIENT_SECRET
+## Additional Commands
 
-2. SendGrid API Key:
-   - Create a SendGrid account
-   - Generate a new API key in the control panel
+```bash
+# View logs
+make logs
 
-3. JWT Secret:
-   - Generate a secure and unique secret key
+# Stop the application
+make down
 
-4. Vault Token:
-   - Configure according to HashiCorp Vault documentation
+# Reset the application (keeping the database)
+make re
 
-IMPORTANT: Never commit the .env file with real credentials to the repository.
+# Reset completely (including database)
+make fcleandb
+```
+
+## Testing the Application
+
+For security testing, run:
+```bash
+# Run the WAF security tests
+chmod +x security_tests/WAF/test_waf.sh
+./security_tests/WAF/test_waf.sh
+```
+
+## Important Notes
+
+- For a publicly accessible deployment, run `./configure_ip.sh` to detect and use your external IP
+- Demo mode uses placeholder OAuth credentials - real OAuth integration requires valid 42 API credentials
+- Never commit the `.env` file to version control

@@ -19,5 +19,5 @@ fi
 # Export the IP_SERVER variable
 export IP_SERVER
 
-# Mostrar mensaje informativo
+# Show the exported variable
 echo "Exported IP: IP_SERVER=$IP_SERVER"

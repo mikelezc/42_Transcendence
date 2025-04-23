@@ -1,5 +1,6 @@
 # Environment variables needed for the project
 # Copy this file as .env and fill in the values
+# For quick deployment, run ./setup_env.sh in the project root
 
 # PostgreSQL Configuration
 SQL_ENGINE=django.db.backends.postgresql   # Database engine
@@ -20,16 +21,19 @@ ENCRYPTION_KEY=your-32-bytes-base64-key    # GDPR Email Encryption Key (32 bytes
 IP_SERVER=                                 # execute ./configure_ip.sh
 
 # 42 OAuth Web Application
+# [Optional for testing] Demo values can be used for local deployment
 FORTYTWO_CLIENT_ID=your-client-id          # 42 OAuth client ID
 FORTYTWO_CLIENT_SECRET=your-client-secret  # 42 OAuth client secret
 FORTYTWO_REDIRECT_URI=https://localhost:8445/login/  # OAuth redirect URI
 
 # 42 API Configuration
+# [Optional for testing] Demo values can be used for local deployment
 FORTYTWO_API_UID=your-api-uid              # 42 API UID (same as client ID)
 FORTYTWO_API_SECRET=your-api-secret        # 42 API secret (same as client secret)
 FORTYTWO_API_URL=your-api-url              # 42 API redirect URL
 
 # Email Configuration (SendGrid)
+# [Optional for testing] In demo mode, no real emails will be sent
 EMAIL_HOST=smtp.sendgrid.net               # SMTP host
 EMAIL_PORT=587                             # SMTP port
 EMAIL_USE_TLS=True                         # Use TLS for emails

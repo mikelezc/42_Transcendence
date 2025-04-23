@@ -78,3 +78,4 @@ chmod +x security_tests/WAF/test_waf.sh
 
 - mlezcano - [GitHub Profile](https://github.com/mikelezc)
 - ampjimen - [GitHub Profile](https://github.com/Amparojd)
+- vpeinado - [GitHub Profile](https://github.com/v-peinado)
